@@ -1,0 +1,3 @@
+J'[auto héberge](https://raphael.salique.fr/liens/) une instance de [Shaarli](https://github.com/shaarli/Shaarli) qui me permet de partager des liens que j'estime intéressants.
+
+Je souhaite développer une web extension compatible avec Firefox (Chrome si possible) qui me permette de partager la page courante sur mon shaarli - l'URL sera celle de la page courante, le titre celui de la page courante. Pour la description, je veux pouvoir choisir mon fournisseur IA (Mistral ou Gemini) qui utilisera le prompt suivant "Fais un court résumé de la page web courante, en un paragraphe pour un partage shaarli". Les tags doivent provenir de l'API Shaarli (`/api/v1/tags`) et ne proposer que ceux qui sont pertinents avec le résumé généré. Par défaut, les partages sont publics.

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Options Shaarli Quick Share</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Configuration</h1>
+      <form id="optionsForm">
+        <label>
+          URL de l'instance Shaarli
+          <input type="url" id="shaarliBaseUrl" placeholder="https://exemple.fr/liens/" required />
+        </label>
+        <label>
+          Secret REST API Shaarli (Authorization: Bearer)
+          <input type="password" id="shaarliApiToken" required />
+        </label>
+        <fieldset>
+          <legend>Résumé automatique (IA)</legend>
+          <label>
+            Fournisseur IA
+            <select id="aiProvider">
+              <option value="mistral">Mistral</option>
+              <option value="gemini">Gemini (Google)</option>
+            </select>
+          </label>
+          <label data-provider-field="mistral" class="provider-key">
+            Clé API Mistral
+            <input type="password" id="mistralApiKey" placeholder="mistral-xxxxxxxx" />
+          </label>
+          <label data-provider-field="gemini" class="provider-key">
+            Clé API Gemini
+            <input type="password" id="geminiApiKey" placeholder="AIzaxxxxxxxx" />
+          </label>
+          <p class="hint">
+            Seul le fournisseur sélectionné doit disposer d’une clé valide. Changez de fournisseur pour renseigner (ou vérifier) sa clé.
+          </p>
+        </fieldset>
+        <fieldset>
+          <legend>Visibilité par défaut</legend>
+          <label>
+            <input type="radio" name="visibility" value="public" checked />
+            Public
+          </label>
+          <label>
+            <input type="radio" name="visibility" value="private" />
+            Privé
+          </label>
+        </fieldset>
+        <button type="submit">Enregistrer</button>
+      </form>
+      <section class="help">
+        <h2>Aide</h2>
+        <ul>
+          <li>Créez un jeton API Shaarli (token secret) et collez-le dans le champ dédié.</li>
+          <li>Choisissez votre fournisseur IA préféré et indiquez la clé associée pour générer le résumé.</li>
+          <li>Les tags suggérés proviennent de l’API Shaarli puis sont filtrés via le résumé IA pour ne conserver que les plus pertinents.</li>
+        </ul>
+        <p class="disclaimer">
+          Les identifiants sont stockés localement via <code>browser.storage.local</code>. Modifiez ou supprimez-les depuis cette page si nécessaire.
+        </p>
+      </section>
+      <p id="optionsStatus" role="status"></p>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

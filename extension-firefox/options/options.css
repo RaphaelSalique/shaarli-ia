@@ -1,0 +1,90 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f4f6fb;
+  color: #16324f;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(22, 50, 79, 0.1);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+input[type='url'],
+input[type='password'],
+select {
+  border: 1px solid #c5d3e8;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 1rem;
+}
+
+fieldset {
+  border: 1px solid #c5d3e8;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.provider-key {
+  transition: opacity 0.2s ease;
+}
+
+.provider-key[hidden] {
+  display: none;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: #3f4b5b;
+  margin: 0;
+}
+
+button {
+  border: none;
+  background: #1b72e8;
+  color: white;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.help {
+  margin-top: 16px;
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(22, 50, 79, 0.1);
+}
+
+.help ul {
+  padding-left: 20px;
+}
+
+.disclaimer {
+  font-size: 0.9rem;
+  color: #3f4b5b;
+}
+
+#optionsStatus {
+  margin-top: 12px;
+  min-height: 20px;
+  font-weight: 600;
+}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Shaarli Quick Share</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Shaarli</h1>
+        <button id="openOptions" title="Ouvrir les options">⚙️</button>
+      </header>
+      <form id="shareForm">
+        <label>
+          Titre
+          <input type="text" id="title" required />
+        </label>
+        <label>
+          URL
+          <input type="url" id="url" required readonly />
+        </label>
+        <label>
+          Description
+          <textarea id="description" rows="4" placeholder="Cliquez sur Résumé IA pour remplir automatiquement."></textarea>
+        </label>
+        <div class="inline-controls">
+          <button type="button" id="generateSummary">Résumé IA</button>
+          <button type="button" id="refreshTags">Tags cloud</button>
+        </div>
+        <label>
+          Tags (séparés par des espaces ou virgules)
+          <input type="text" id="tags" placeholder="ex: cloud devops" />
+        </label>
+        <div id="tagSuggestions" class="tag-suggestions"></div>
+        <label class="checkbox">
+          <input type="checkbox" id="privateToggle" />
+          Partage privé
+        </label>
+        <button id="submitShare" type="submit">Partager</button>
+      </form>
+      <p id="status" role="status"></p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
