@@ -4,7 +4,7 @@ Extension Firefox/Chrome pour partager rapidement la page courante sur une insta
 
 - Récupération automatique du titre/URL de l’onglet actif.
 - Résumé généré par le fournisseur IA de votre choix (Mistral ou Gemini) via le prompt demandé.
-- Suggestions de tags chargées via l’endpoint REST `GET /api/v1/tags`.
+- Tags proposés via l’endpoint REST `GET /api/v1/tags`, pondérés par 15 suggestions générées par l’IA (français ou anglais selon le contexte) pour mettre en avant les tags déjà existants et pertinents pour la page courante.
 - Publication via l’API Shaarli avec visibilité configurable (public/privé).
 
 ### Structure

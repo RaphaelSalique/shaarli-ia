@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Shaarli Quick Share",
   "description": "Partage rapidement la page courante sur une instance Shaarli avec résumé IA et tags favoris.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "permissions": [
     "activeTab",
     "tabs",

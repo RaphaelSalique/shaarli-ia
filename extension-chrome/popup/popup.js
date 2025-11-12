@@ -13,6 +13,7 @@ const tagSuggestionsEl = document.getElementById('tagSuggestions');
 const submitBtn = document.getElementById('submitShare');
 const openOptionsBtn = document.getElementById('openOptions');
 const MAX_TAG_RESULTS = 20;
+const PRIORITY_TAG_BONUS = 25;
 
 let activeTabId = null;
 
@@ -84,15 +85,31 @@ async function loadTagSuggestions() {
   try {
     toggleBusy(refreshTagsBtn, true);
     setStatus('Analyse des tags à partir du résumé…');
-    const response = await browserApi.runtime.sendMessage({ type: 'fetchTags' });
+    const response = await browserApi.runtime.sendMessage({
+      type: 'fetchTags',
+      payload: {
+        summary,
+        title: titleInput.value,
+        url: urlInput.value
+      }
+    });
     if (!response?.ok) {
       throw new Error(response?.error || 'Impossible de charger les tags.');
     }
-    const rankedTags = rankTagsByRelevance(summary, response.data || [], titleInput.value);
+    const tagPayload = response.data || {};
+    const rankedTags = rankTagsByRelevance(
+      summary,
+      tagPayload.tags || [],
+      titleInput.value,
+      tagPayload.sharedTags || []
+    );
+    const sharedCount = Array.isArray(tagPayload.sharedTags) ? tagPayload.sharedTags.length : 0;
     renderTagSuggestions(rankedTags);
     setStatus(
       rankedTags.length
-        ? 'Tags pertinents suggérés.'
+        ? sharedCount
+          ? `Tags communs mis en avant (${sharedCount}).`
+          : 'Tags pertinents suggérés.'
         : 'Aucun tag existant ne correspond au résumé.',
       rankedTags.length === 0
     );
@@ -206,20 +223,27 @@ async function capturePageExcerpt() {
   return '';
 }
 
-function rankTagsByRelevance(summary, tags, title = '') {
+function rankTagsByRelevance(summary, tags, title = '', priorityTags = []) {
   if (!Array.isArray(tags) || !tags.length) {
     return [];
   }
   const context = `${title || ''} ${summary}`.toLowerCase();
   const tokens = tokenize(context);
   const tokenSet = new Set(tokens);
+  const prioritySet = new Set(
+    (Array.isArray(priorityTags) ? priorityTags : [])
+      .map((tag) => normalizeTagValue(tag))
+      .filter(Boolean)
+  );
   return tags
     .map((tag) => {
       const normalizedTag = String(tag || '').trim();
       if (!normalizedTag) return null;
+      const tagKey = normalizeTagValue(normalizedTag);
+      const isPriority = prioritySet.has(tagKey);
       const lowerTag = normalizedTag.toLowerCase();
       const tagParts = tokenize(lowerTag);
-      let score = 0;
+      let score = isPriority ? PRIORITY_TAG_BONUS : 0;
       if (context.includes(lowerTag)) {
         score += 4;
       }
@@ -230,16 +254,35 @@ function rankTagsByRelevance(summary, tags, title = '') {
           score += 1;
         }
       });
-      return { tag: normalizedTag, score };
+      return { tag: normalizedTag, score, isPriority };
     })
     .filter((entry) => entry && entry.score > 0)
     .sort((a, b) => {
       if (b.score === a.score) {
+        if (a.isPriority !== b.isPriority) {
+          return a.isPriority ? -1 : 1;
+        }
         return a.tag.localeCompare(b.tag);
       }
       return b.score - a.score;
     })
     .map((entry) => entry.tag);
+}
+
+function normalizeTagValue(tag) {
+  if (!tag) {
+    return '';
+  }
+  let value = String(tag).trim().replace(/^#+/, '');
+  if (typeof value.normalize === 'function') {
+    value = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function tokenize(text) {

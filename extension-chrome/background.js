@@ -15,6 +15,9 @@ const SUMMARY_SYSTEM_PROMPT = 'Tu génères des résumés concis en français po
 const MISTRAL_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL = 'mistral-small-latest';
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+const TAG_SUGGESTION_COUNT = 15;
+const TAG_SYSTEM_PROMPT =
+  'Tu proposes des tags Shaarli concis (1 à 3 mots) en français ou en anglais selon ce qui est le plus pertinent, et tu renvoies uniquement une liste séparée par des virgules.';
 
 const AI_PROVIDER_CONFIG = {
   mistral: { label: 'Mistral', keyField: 'mistralApiKey' },
@@ -94,6 +97,23 @@ function ensureProviderKey(provider, settings) {
 }
 
 async function generateSummaryWithMistral(prompt, apiKey) {
+  return callMistralChat({
+    apiKey,
+    prompt,
+    systemPrompt: SUMMARY_SYSTEM_PROMPT,
+    temperature: 0.2
+  });
+}
+
+async function generateSummaryWithGemini(prompt, apiKey) {
+  return callGeminiGenerativeModel({
+    apiKey,
+    prompt,
+    systemPrompt: SUMMARY_SYSTEM_PROMPT
+  });
+}
+
+async function callMistralChat({ apiKey, prompt, systemPrompt, temperature = 0.2 }) {
   const response = await fetch(MISTRAL_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -102,9 +122,9 @@ async function generateSummaryWithMistral(prompt, apiKey) {
     },
     body: JSON.stringify({
       model: MISTRAL_MODEL,
-      temperature: 0.2,
+      temperature,
       messages: [
-        { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ]
     })
@@ -116,7 +136,7 @@ async function generateSummaryWithMistral(prompt, apiKey) {
   return sanitizeSummary(data?.choices?.[0]?.message?.content);
 }
 
-async function generateSummaryWithGemini(prompt, apiKey) {
+async function callGeminiGenerativeModel({ apiKey, prompt, systemPrompt }) {
   const url = new URL(GEMINI_ENDPOINT);
   url.searchParams.set('key', apiKey);
   const response = await fetch(url.toString(), {
@@ -128,7 +148,7 @@ async function generateSummaryWithGemini(prompt, apiKey) {
       contents: [
         {
           role: 'user',
-          parts: [{ text: `${SUMMARY_SYSTEM_PROMPT}\n\n${prompt}` }]
+          parts: [{ text: `${systemPrompt}\n\n${prompt}` }]
         }
       ]
     })
@@ -177,11 +197,80 @@ async function fetchPreferredTags(options = {}) {
     throw new Error('Configurez Shaarli (URL + jeton API) dans les options pour charger les tags.');
   }
 
-const apiTags = await fetchTagsFromApi(settings, options);
+  const aiCandidates = await generateAiTagCandidates(options, settings);
+  const apiTags = await fetchTagsFromApi(settings, options);
   if (!apiTags.length) {
     throw new Error('Aucun tag disponible via l’API Shaarli.');
   }
-  return apiTags;
+  const sharedTags = computeSharedTags(apiTags, aiCandidates);
+  return {
+    tags: apiTags,
+    sharedTags
+  };
+}
+
+async function generateAiTagCandidates(context = {}, settings = {}) {
+  const prompt = buildTagSuggestionPrompt(context);
+  if (!prompt) {
+    throw new Error('Générez d’abord un résumé pour proposer des tags IA.');
+  }
+  const provider = settings.aiProvider || DEFAULT_AI_PROVIDER;
+  const rawTags = await generateTagsWithProvider(provider, prompt, settings);
+  const parsedTags = parseAiTagList(rawTags);
+  if (!parsedTags.length) {
+    throw new Error('Le fournisseur IA n’a pas renvoyé de tags exploitables.');
+  }
+  return parsedTags;
+}
+
+function buildTagSuggestionPrompt(context = {}) {
+  const title = context.title?.trim() || '';
+  const url = context.url?.trim() || '';
+  const summary = context.summary?.trim() || '';
+  const pageText = context.pageText?.trim() || '';
+  const content = summary || pageText;
+  if (!content) {
+    return '';
+  }
+  const sections = [
+    `Analyse les informations suivantes et retourne au maximum ${TAG_SUGGESTION_COUNT} tags pertinents pour Shaarli.`
+  ];
+  if (title) {
+    sections.push(`Titre: ${title}`);
+  }
+  if (url) {
+    sections.push(`URL: ${url}`);
+  }
+  sections.push(`Résumé ou extrait:\n${truncateText(content, SUMMARY_CONTEXT_LIMIT)}`);
+  sections.push('Format attendu: une liste de tags séparés par des virgules, sans commentaire.');
+  return sections.join('\n\n');
+}
+
+async function generateTagsWithProvider(provider, prompt, settings) {
+  switch (provider) {
+    case 'gemini':
+      return generateTagsWithGemini(prompt, ensureProviderKey('gemini', settings));
+    case 'mistral':
+    default:
+      return generateTagsWithMistral(prompt, ensureProviderKey('mistral', settings));
+  }
+}
+
+async function generateTagsWithMistral(prompt, apiKey) {
+  return callMistralChat({
+    apiKey,
+    prompt,
+    systemPrompt: TAG_SYSTEM_PROMPT,
+    temperature: 0.1
+  });
+}
+
+async function generateTagsWithGemini(prompt, apiKey) {
+  return callGeminiGenerativeModel({
+    apiKey,
+    prompt,
+    systemPrompt: TAG_SYSTEM_PROMPT
+  });
 }
 
 async function fetchTagsFromApi(settings, options = {}) {
@@ -234,6 +323,49 @@ function normalizeTagsFromApiPayload(payload) {
   }
 
   return [];
+}
+
+function parseAiTagList(text) {
+  if (!text) {
+    return [];
+  }
+  const candidates = text
+    .split(/[\n,;]+/)
+    .map((entry) => entry.replace(/^[\s#*\-\d\.]+/, '').trim())
+    .filter(Boolean);
+  const seen = new Set();
+  const results = [];
+  candidates.forEach((candidate) => {
+    const normalized = normalizeTagValue(candidate);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      results.push(normalized);
+    }
+  });
+  return results.slice(0, TAG_SUGGESTION_COUNT);
+}
+
+function computeSharedTags(existingTags = [], aiCandidates = []) {
+  if (!Array.isArray(existingTags) || !existingTags.length || !Array.isArray(aiCandidates) || !aiCandidates.length) {
+    return [];
+  }
+  const normalizedMap = new Map();
+  existingTags.forEach((tag) => {
+    const normalized = normalizeTagValue(tag);
+    if (normalized && !normalizedMap.has(normalized)) {
+      normalizedMap.set(normalized, tag);
+    }
+  });
+  const shared = [];
+  const used = new Set();
+  aiCandidates.forEach((candidate) => {
+    const normalized = normalizeTagValue(candidate);
+    if (normalized && normalizedMap.has(normalized) && !used.has(normalized)) {
+      shared.push(normalizedMap.get(normalized));
+      used.add(normalized);
+    }
+  });
+  return shared;
 }
 
 async function shareLinkToShaarli(payload) {
@@ -341,6 +473,22 @@ function ensureUint8Array(value) {
     return new Uint8Array(value);
   }
   return getTextEncoder().encode(typeof value === 'string' ? value : String(value));
+}
+
+function normalizeTagValue(tag) {
+  if (!tag) {
+    return '';
+  }
+  let value = String(tag).trim().replace(/^#+/, '');
+  if (typeof value.normalize === 'function') {
+    value = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function getTextEncoder() {
